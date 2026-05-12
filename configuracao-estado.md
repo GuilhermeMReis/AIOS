@@ -1,0 +1,101 @@
+# Estado da Configuração do AIOS
+
+> **Atualizado em:** 2026-05-13
+> **Última ação:** Scaffold inicial finalizado (23 commits em `main`, build verde, code review final aprovado com follow-ups aplicados).
+> **Próximo passo:** Pedir credenciais do **Bloco A (Supabase)** ao cliente e executar **Estágio 1** de `configuracao.md`.
+
+---
+
+## Como uma sessão de IA deve usar este arquivo
+
+1. Ler o cabeçalho acima → entende o contexto.
+2. Procurar o primeiro `[ ]` na ordem dos estágios → é o próximo passo.
+3. Abrir `configuracao.md` na seção do estágio correspondente.
+4. Executar. Ao concluir um item, **marcar `[x]` e atualizar o cabeçalho** ("Última ação" + "Próximo passo").
+5. Adicionar entrada no **Histórico** ao final deste arquivo.
+6. Commitar: `git commit -m "docs(estado): <resumo da ação>"`.
+
+Se um passo bloquear (ex: cliente não tem credencial pronta), deixar `[ ]` mas **atualizar "Próximo passo"** explicando o bloqueio.
+
+---
+
+## Checklist
+
+### Estágio 0 — Scaffold (concluído)
+- [x] Spec do design (`docs/superpowers/specs/2026-05-12-aios-design.md`)
+- [x] Plano de implementação (`docs/superpowers/plans/2026-05-13-aios-scaffold.md`)
+- [x] Bootstrap Next.js 16 + Tailwind v4 + TypeScript
+- [x] Dependências Supabase + Zod instaladas
+- [x] Camada de auth (proxy + requireUser)
+- [x] 4 entidades de domínio (validator + repo + service + routes)
+- [x] Migration SQL com RLS
+- [x] Páginas de auth (login/cadastro/sair/callback) + dashboard placeholder
+- [x] Dockerfile multi-stage
+- [x] README com setup e deploy
+- [x] Code review final aplicado (fixes de open-redirect, DELETE 404, layout metadata)
+
+### Estágio 1 — Supabase configurado
+- [ ] Credenciais recebidas do cliente (URL + anon key)
+- [ ] Validação rápida de credenciais (curl no /auth/v1/health)
+- [ ] Migration `0001_init.sql` aplicada no projeto Supabase
+- [ ] 4 tabelas visíveis no Table Editor
+- [ ] Email Auth habilitado (Authentication → Providers → Email)
+- [ ] Decisão "Confirm email" tomada com o cliente
+- [ ] Redirect URLs configuradas (`http://localhost:3000/api/auth/callback`)
+- [ ] `database.types.ts` regenerado via `supabase gen types`
+- [ ] Mudança commitada
+
+### Estágio 2 — App rodando local
+- [ ] `.env.local` criado e preenchido
+- [ ] `npm install` executado
+- [ ] `npm run dev` levanta sem erro
+- [ ] Cadastro funciona via UI
+- [ ] Login funciona via UI
+- [ ] Dashboard exibe email do usuário logado
+- [ ] Sair redireciona pra `/login`
+- [ ] `GET /api/chamadas` autenticado → `{ data: [] }`
+- [ ] `GET /api/chamadas` sem auth → 401 com JSON de erro
+
+### Estágio 3 — Easypanel configurado
+- [ ] Credenciais recebidas (URL do painel + API token)
+- [ ] Nome do projeto definido com cliente
+- [ ] Repositório git acessível ao Easypanel (deploy key/PAT configurado)
+- [ ] Domínio público definido com cliente
+- [ ] API do Easypanel explorada e endpoints confirmados (ou fallback pra UI documentado)
+- [ ] Projeto criado no painel
+- [ ] Service "app" criado com source git
+- [ ] Build configurado (Dockerfile path `docker/Dockerfile`)
+- [ ] Build Args setados (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+- [ ] Env vars de runtime setadas
+- [ ] Porta 3000 exposta
+- [ ] Domínio mapeado com HTTPS
+
+### Estágio 4 — Deploy ativo
+- [ ] Redirect URL de produção adicionada no Supabase
+- [ ] Deploy disparado
+- [ ] Build concluído sem erro (logs revisados)
+- [ ] HTTPS respondendo no domínio
+- [ ] Cadastro funciona em produção
+- [ ] Login funciona em produção
+- [ ] Dashboard funciona em produção
+- [ ] API `GET /api/chamadas` funciona em produção (autenticado)
+
+### Pós-deploy — Features de IA (fora deste playbook)
+- [ ] Credenciais Anthropic/OpenAI recebidas
+- [ ] Geração de relatório implementada (service `relatorios`)
+- [ ] Geração de proposta + link externo (service `propostas`)
+- [ ] UI no dashboard pra criar chamadas + colar transcrição
+
+---
+
+## Decisões registradas
+
+Anote aqui escolhas feitas com o cliente que afetam configuração:
+
+- *(vazio — primeira decisão aparece quando começarmos Estágio 1)*
+
+---
+
+## Histórico
+
+- **2026-05-13** — Scaffold finalizado. 23 commits em `main`. Build verde. Code review final aplicado. Aguardando credenciais do cliente para iniciar Estágio 1.
