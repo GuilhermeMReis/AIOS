@@ -31,6 +31,7 @@ export type Database = {
           status?: string;
           created_at?: string;
         };
+        Relationships: [];
       };
       transcricoes: {
         Row: {
@@ -51,6 +52,7 @@ export type Database = {
           conteudo?: string;
           created_at?: string;
         };
+        Relationships: [];
       };
       relatorios: {
         Row: {
@@ -71,6 +73,7 @@ export type Database = {
           conteudo?: string;
           gerado_em?: string;
         };
+        Relationships: [];
       };
       propostas: {
         Row: {
@@ -94,6 +97,7 @@ export type Database = {
           status?: string;
           created_at?: string;
         };
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
