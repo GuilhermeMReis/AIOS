@@ -88,9 +88,23 @@ Decisões a confirmar com o cliente:
 - **Nome do projeto na Vercel** — vira parte da URL `https://<nome>.vercel.app` (ex: `aios-acme`).
 - **Domínio customizado?** Opcional. Se sim, o cliente precisa ter o domínio registrado e seguir as instruções DNS da Vercel.
 
-### Bloco C — Provedor de IA (fora do scaffold inicial)
+### Bloco C — Anthropic API key (necessária a partir do Estágio 2 pra usar os agentes)
 
-Anthropic API key ou OpenAI API key quando o cliente decidir habilitar geração de relatório/proposta.
+Os agentes de IA (análise da call e geração da proposta) chamam o **Claude Sonnet 4.6** via SDK oficial. Sem essa chave, o app **roda** mas os botões **"Salvar e analisar"** e **"Gerar proposta"** retornam erro 500 com mensagem clara.
+
+Pré-requisito do cliente:
+
+1. Criar conta em https://console.anthropic.com (gratuita; uso é cobrado por token consumido).
+2. Adicionar saldo (Settings → **Plans & Billing**) — basta US$ 5-10 pra centenas de análises de call.
+3. **Settings → API Keys → Create Key**:
+   - Nome sugerido: `aios-<ambiente>` (ex: `aios-prod`, `aios-dev`).
+   - Workspace: o padrão serve pra MVP.
+   - Permissões: padrão (pode chamar Messages API).
+4. Copiar a chave (`sk-ant-api03-...`) imediatamente — o Console **só mostra uma vez**. Guardar em gerenciador de senhas; canal seguro pra entregar pra IA.
+
+A chave vai como `ANTHROPIC_API_KEY` em dois lugares:
+- `.env.local` no setup local (Estágio 2).
+- **Environment Variables** da Vercel, em Production+Preview+Development, marcada como **sensitive** (Estágio 3).
 
 ---
 
@@ -183,9 +197,12 @@ Anthropic API key ou OpenAI API key quando o cliente decidir habilitar geração
    NEXT_PUBLIC_SUPABASE_URL=<URL fornecida pela IA>
    NEXT_PUBLIC_SUPABASE_ANON_KEY=<sb_publishable_... — apesar do nome legado da variável, é a publishable nova>
    # SUPABASE_SERVICE_ROLE_KEY=<sb_secret_...>  ← só se for usar jobs admin server-side; cuidado: nunca expor no client
+   ANTHROPIC_API_KEY=<sk-ant-api03-... — do Bloco C>
    ```
 
    > Nota: as variáveis no app mantêm os nomes `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` para compatibilidade com `@supabase/ssr` — o **valor** colocado em `_ANON_KEY` agora é a publishable key nova.
+
+   > **Sem `ANTHROPIC_API_KEY`**: o dashboard e a navegação rodam normalmente, mas clicar em "Salvar e analisar" ou "Gerar proposta" retorna erro 500. Pegue a chave do Bloco C antes desse smoke test.
 
 3. **Instalar e rodar:**
    ```bash
@@ -230,15 +247,16 @@ A IA não tem token da Vercel — orienta o cliente e valida o resultado.
    - **Root Directory:** `./` (padrão).
    - **Build / Output Settings:** padrão.
 
-5. **Environment Variables** — adicionar (a IA entrega os valores prontos do Estágio 1):
+5. **Environment Variables** — adicionar (a IA entrega os valores prontos do Estágio 1; a `ANTHROPIC_API_KEY` é a do Bloco C):
 
    | Nome | Valor | Sensitive? |
    |---|---|---|
    | `NEXT_PUBLIC_SUPABASE_URL` | URL do projeto Supabase | Não |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable key (`sb_publishable_...`) | Não |
+   | `ANTHROPIC_API_KEY` | `sk-ant-api03-...` (Bloco C) | **Sim** |
    | `SUPABASE_SERVICE_ROLE_KEY` | Secret key (`sb_secret_...`) — **opcional**, só se for usar jobs admin server-side | **Sim** |
 
-   Aplicar em todos os 3 ambientes da Vercel: **Production, Preview, Development**.
+   Aplicar em todos os 3 ambientes da Vercel: **Production, Preview, Development**. Sem a `ANTHROPIC_API_KEY` em produção, os botões de IA retornam erro 500.
 
 6. **Deploy.** Clicar **Deploy**. Primeiro build leva ~2 min. Vercel mostra logs em tempo real.
 

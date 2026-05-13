@@ -57,15 +57,19 @@ Se um passo bloquear (ex: cliente não tem credencial pronta), deixar `[ ]` mas 
 - [ ] URL + publishable key entregues ao cliente pro Estágio 2
 
 ### Estágio 2 — App rodando local
-- [ ] `.env.local` criado e preenchido
+- [ ] Conta Anthropic criada em https://console.anthropic.com com saldo
+- [ ] `ANTHROPIC_API_KEY` criada em Console → Settings → API Keys (Bloco C)
+- [ ] `.env.local` criado e preenchido (Supabase URL + publishable + `ANTHROPIC_API_KEY`)
 - [ ] `npm install` executado
 - [ ] `npm run dev` levanta sem erro
 - [ ] Cadastro funciona via UI
 - [ ] Login funciona via UI
-- [ ] Dashboard exibe email do usuário logado
+- [ ] Dashboard exibe stats cards + lista vazia + botão "+ Nova chamada"
 - [ ] Sair redireciona pra `/login`
 - [ ] `GET /api/chamadas` autenticado → `{ data: [] }`
 - [ ] `GET /api/chamadas` sem auth → 401 com JSON de erro
+- [ ] Smoke test IA: criar uma chamada com transcrição teste → análise gerada em ~30s
+- [ ] Smoke test IA: gerar proposta a partir da análise → proposta criada
 
 ### Estágio 3 — Vercel configurada (deploy contínuo)
 - [ ] Cliente forkou o repo no GitHub
@@ -75,6 +79,7 @@ Se um passo bloquear (ex: cliente não tem credencial pronta), deixar `[ ]` mas 
 - [ ] Framework Next.js detectado automaticamente
 - [ ] `NEXT_PUBLIC_SUPABASE_URL` setada em Production+Preview+Development
 - [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` setada em Production+Preview+Development
+- [ ] `ANTHROPIC_API_KEY` setada em Production+Preview+Development como **sensitive**
 - [ ] *(Opcional)* `SUPABASE_SERVICE_ROLE_KEY` setada como sensitive
 - [ ] Primeiro deploy verde
 - [ ] URL pública `<nome>.vercel.app` compartilhada com a IA e anotada em "Decisões"
@@ -83,8 +88,10 @@ Se um passo bloquear (ex: cliente não tem credencial pronta), deixar `[ ]` mas 
 - [ ] Redirect URL `https://<projeto>.vercel.app/api/auth/callback` adicionada no Supabase
 - [ ] Cadastro funciona em produção
 - [ ] Login funciona em produção
-- [ ] Dashboard mostra email do usuário em produção
+- [ ] Dashboard mostra stats + lista em produção
 - [ ] `GET /api/chamadas` autenticado responde `{ data: [] }`
+- [ ] Smoke test IA em produção: criar chamada + analisar → análise gerada
+- [ ] Smoke test IA em produção: gerar proposta → proposta criada
 - [ ] *(Opcional)* Domínio customizado configurado e DNS apontando
 
 ### Pós-deploy — Features de IA (fora deste playbook)

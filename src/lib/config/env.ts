@@ -11,12 +11,17 @@ const envSchema = z.object({
     (v) => (v === "" ? undefined : v),
     z.string().min(1).optional(),
   ),
+  ANTHROPIC_API_KEY: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().min(1).optional(),
+  ),
 });
 
 const parsed = envSchema.safeParse({
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
 });
 
 if (!parsed.success) {
