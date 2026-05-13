@@ -1,8 +1,10 @@
 # Estado da Configuração do AIOS
 
 > **Atualizado em:** 2026-05-13
-> **Última ação:** Scaffold inicial finalizado (23 commits em `main`, build verde, code review final aprovado com follow-ups aplicados).
-> **Próximo passo:** Pedir credenciais do **Bloco A (Supabase)** ao cliente e executar **Estágio 1** de `configuracao.md`.
+> **Última ação:** Playbook reescrito para o modelo "projeto base + IA configura via secret key". Scaffold inicial finalizado (24 commits em `main`, build verde, code review final aplicado).
+> **Próximo passo:** Cliente fornecer Bloco A (URL + `sb_publishable_*` + `sb_secret_*`) para executar **Estágio 1** de `configuracao.md`.
+
+> **Nota:** este arquivo registra o estado **do projeto base**. Quando um cliente clonar para instalar, ele começa com este estado (Estágio 0 = `[x]`, demais = `[ ]`) e atualiza conforme avança na própria instância.
 
 ---
 
@@ -34,15 +36,17 @@ Se um passo bloquear (ex: cliente não tem credencial pronta), deixar `[ ]` mas 
 - [x] README com setup e deploy
 - [x] Code review final aplicado (fixes de open-redirect, DELETE 404, layout metadata)
 
-### Estágio 1 — Supabase configurado
-- [ ] Credenciais recebidas do cliente (URL + anon key)
-- [ ] Validação rápida de credenciais (curl no /auth/v1/health)
-- [ ] Migration `0001_init.sql` aplicada no projeto Supabase
-- [ ] 4 tabelas visíveis no Table Editor
-- [ ] Email Auth habilitado (Authentication → Providers → Email)
-- [ ] Decisão "Confirm email" tomada com o cliente
-- [ ] Redirect URLs configuradas (`http://localhost:3000/api/auth/callback`)
-- [ ] `database.types.ts` regenerado via `supabase gen types`
+### Estágio 1 — Supabase configurado pela IA
+- [ ] Credenciais recebidas do cliente: **Project URL** + **`sb_publishable_*`** + **`sb_secret_*`**
+- [ ] *(Opcional)* Personal Access Token (PAT) recebido pra automatizar config do Auth
+- [ ] Validação rápida (curl no /auth/v1/health usando a publishable)
+- [ ] Migration `0001_init.sql` aplicada (via MCP, psql ou REST com a secret)
+- [ ] 4 tabelas presentes com RLS ativa (`list_tables` ou query de verificação)
+- [ ] Email Auth habilitado
+- [ ] Decisão "Confirm email" tomada com o cliente (registrar em "Decisões")
+- [ ] Redirect URL `http://localhost:3000/api/auth/callback` adicionada
+- [ ] `database.types.ts` regenerado a partir do schema real do cliente
+- [ ] `get_advisors` rodado — sem alertas críticos
 - [ ] Mudança commitada
 
 ### Estágio 2 — App rodando local
@@ -99,3 +103,4 @@ Anote aqui escolhas feitas com o cliente que afetam configuração:
 ## Histórico
 
 - **2026-05-13** — Scaffold finalizado. 23 commits em `main`. Build verde. Code review final aplicado. Aguardando credenciais do cliente para iniciar Estágio 1.
+- **2026-05-13** — Playbook reformulado para projeto base/template. Estágio 1 agora prevê IA configurando auth/DDL/RLS via `sb_secret_*`; cliente entrega 2 chaves (`sb_publishable_*` + `sb_secret_*`) + URL. PAT opcional pra automação total do Auth.

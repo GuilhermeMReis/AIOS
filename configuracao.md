@@ -1,110 +1,125 @@
 # Configuração do AIOS — Playbook
 
-Este documento é o **playbook operacional** para levar o AIOS do scaffold (estado atual) até produção.
+> **Este é um projeto base / template.** Cada cliente que quer rodar o AIOS clona este repositório e executa este playbook (preferencialmente com uma sessão de IA assistindo). A IA usa as **credenciais Supabase** fornecidas pelo cliente para configurar auth, criar tabelas, RLS e tipos — o cliente não precisa abrir o SQL Editor.
 
-**Use sempre junto com `configuracao-estado.md`** — ele registra o que já foi feito e qual o próximo passo. Uma sessão de IA retomando esse trabalho deve:
+**Use sempre junto com `configuracao-estado.md`** — esse outro arquivo registra o que já foi feito e qual o próximo passo. Uma sessão de IA retomando a instalação deve:
 
 1. Ler `configuracao-estado.md` primeiro pra ver onde paramos.
 2. Identificar o próximo item `[ ]` (não feito).
 3. Executar conforme a seção correspondente neste arquivo.
 4. **Marcar `[x]` em `configuracao-estado.md`** e atualizar "Próximo passo" + "Última ação".
-5. Commitar a mudança de estado (`docs(estado): ...`).
+5. Commitar a mudança (`docs(estado): <resumo>`).
 
 ---
 
 ## Credenciais a pedir ao cliente
 
-Antes de qualquer estágio, peça apenas o que for necessário para o próximo passo. Não junte tudo no início — o cliente pode não ter ainda.
+A IA pede apenas o necessário pra cada estágio. Não pedir tudo no início — o cliente pode ainda não ter o domínio ou conta Easypanel quando começar.
 
 ### Bloco A — Supabase (necessário a partir do Estágio 1)
 
-Pergunte ao cliente:
+Peça ao cliente:
 
-1. **Você já tem um projeto no Supabase para o AIOS?**
-   - Se **não**: oriente criar em https://supabase.com/dashboard → **New project**. Escolha região próxima dos usuários finais.
-   - Se **sim**: prossiga.
+1. **Criar um projeto novo** em https://supabase.com/dashboard (se ainda não tem). Recomendar região próxima dos usuários finais (ex: `sa-east-1` São Paulo para Brasil). Nome livre — ex: `aios-<cliente>`.
 
-2. **Project URL** — formato `https://<id>.supabase.co`.
-   - Onde achar: Supabase Dashboard → **Settings → API** → campo **Project URL**.
+2. Compartilhar com você **3 valores** do projeto. Onde achar: Supabase Dashboard → **Project Settings → API**.
 
-3. **anon public key** — chave pública (segura no client).
-   - Onde achar: mesmo lugar → **Project API keys** → linha `anon` / `public`.
+   | Valor | Formato | Para que serve |
+   |---|---|---|
+   | **Project URL** | `https://<ref>.supabase.co` | Endpoint do projeto. Vai no `.env.local` do app. |
+   | **Publishable key** | `sb_publishable_...` | Chave pública nova (substitui `anon`). Vai no `.env.local`. Segura no front. |
+   | **Secret key** | `sb_secret_...` | Chave secreta nova (substitui `service_role`). **NÃO vai no front**. É com ela que a IA aplica DDL, configura RLS, regera tipos. |
 
-4. **service_role key** *(opcional, só se rodarmos jobs admin)* — chave admin.
-   - **NUNCA expor no front.** Só usar em código server-side específico.
-   - Onde achar: mesmo lugar → linha `service_role`.
+   > **Sobre as chaves novas:** desde nov-2025 o Supabase usa `sb_publishable_*` e `sb_secret_*` no lugar de `anon`/`service_role` legados. Projetos criados depois dessa data só recebem as novas. Se o cliente tiver um projeto antigo com chaves legadas, elas ainda funcionam (a publishable substitui a anon 1-pra-1, a secret substitui a service_role 1-pra-1), mas **prefira as novas**.
 
-5. **Project ref / ID** *(útil pra regenerar tipos)* — o subdomínio do Project URL.
-   - Ex: se URL é `https://abcdefgh.supabase.co`, ref é `abcdefgh`.
+   > **Canal seguro pra `sb_secret_*`:** essa chave dá poder total sobre o banco. O cliente nunca deve postá-la em chat público, screenshot, repositório, etc. Combinar canal cifrado (1Password share, gerenciador de senhas, mensagem direta criptografada).
+
+3. *(Opcional, recomendado para automação total do Estágio 1)* **Personal Access Token (PAT)** do Supabase — Dashboard → **Account → Access Tokens → Generate new token**. Usado para configurar **redirect URLs do Auth provider** via Management API. Sem o PAT, esses 2 cliques ficam manuais no Dashboard; com ele, totalmente automatizado.
 
 ### Bloco B — Easypanel (necessário a partir do Estágio 3)
 
 1. **URL do painel** — ex: `https://panel.cliente.com`.
+2. **API token** — Easypanel → **Settings → API → Create token**. Permissões: criar projeto, criar service, definir env vars, deploy.
+3. **Nome do projeto** desejado no painel (ex: `aios`).
+4. **Repositório git** acessível ao Easypanel (URL HTTPS ou SSH). Se privado, deploy key/PAT do provider.
+5. **Domínio público** — ex: `aios.cliente.com`. HTTPS automático.
 
-2. **API token** — Easypanel → **Settings → API** → **Create token**.
-   - Permissões mínimas: criar projeto, criar service, definir env vars, deploy.
+### Bloco C — Provedor de IA (fora do scaffold inicial)
 
-3. **Nome do projeto** desejado no Easypanel (ex: `aios`).
-
-4. **Repositório git acessível ao Easypanel** — URL HTTPS ou SSH.
-   - Se o repo é privado, configurar deploy key ou Git provider (GitHub/GitLab) com token.
-
-5. **Domínio público** — ex: `aios.cliente.com`. Easypanel cuida do HTTPS automático.
-
-### Bloco C — Provider de IA (futuro, fora do scaffold)
-
-Anthropic API key ou OpenAI API key, quando formos habilitar geração de relatório/proposta.
+Anthropic API key ou OpenAI API key quando o cliente decidir habilitar geração de relatório/proposta.
 
 ---
 
-## Estágio 1 — Supabase configurado
+## Estágio 1 — Supabase configurado pela IA
 
-**Pré-requisito:** credenciais do Bloco A.
+**Pré-requisito:** Bloco A entregue (URL + publishable + secret).
 
-### Passos
+### O que a IA executa
 
-1. **Validar credenciais.** Com URL e anon key em mãos, testar acesso:
+A IA tem 3 caminhos para operar o projeto Supabase do cliente, em ordem de preferência:
+
+**Caminho 1 — MCP do Supabase (preferido):** se a sessão tiver o MCP `claude_ai_Supabase` ativo, use as ferramentas:
+- `list_projects` → confirma o `project_id` baseado na URL.
+- `apply_migration` → roda o SQL.
+- `list_tables` → verifica criação.
+- `get_advisors` → checa segurança/performance.
+- `generate_typescript_types` → regera tipos.
+- `get_project_url` / `get_publishable_keys` → confirma valores fornecidos.
+
+> Com MCP, a `sb_secret_*` é redundante — a autenticação já vem do MCP do usuário. Peça mesmo assim, porque a IA da próxima sessão (ou um operador humano) pode não ter MCP.
+
+**Caminho 2 — psql via secret key:** sem MCP, conectar direto no banco e rodar a migration:
+```bash
+# o cliente fornece a secret; URL do banco é db.<ref>.supabase.co
+PGPASSWORD='<sb_secret_...>' psql \
+  -h db.<ref>.supabase.co -p 5432 -U postgres -d postgres \
+  -f supabase/migrations/0001_init.sql
+```
+Atenção: a porta 5432 pode estar bloqueada em algumas redes. Alternativa: usar a porta 6543 (pooler) ou o SQL REST endpoint.
+
+**Caminho 3 — REST `pg_meta`:** via HTTP API com a `sb_secret_*` como bearer, postar SQL em `<URL>/pg/query` (endpoint interno do Supabase). Menos comum, manter como fallback.
+
+### Passos (executar em sequência)
+
+1. **Validar credenciais.**
    ```bash
-   curl -s "<NEXT_PUBLIC_SUPABASE_URL>/auth/v1/health" -H "apikey: <ANON_KEY>" | head -1
+   curl -s "<NEXT_PUBLIC_SUPABASE_URL>/auth/v1/health" -H "apikey: <sb_publishable_...>" | head -1
    ```
-   Esperado: `200 OK` ou JSON com `"status":"OK"`.
+   Esperado: `{"status":"OK"}` ou similar.
 
-2. **Aplicar a migration.** Há duas opções:
+2. **Aplicar a migration** `supabase/migrations/0001_init.sql` pelo caminho escolhido acima.
 
-   **Opção A — SQL Editor (mais simples, sem instalar nada):**
-   - Supabase Dashboard → **SQL Editor** → **New query**.
-   - Cole o conteúdo de `supabase/migrations/0001_init.sql`.
-   - **Run**. Conferir que as 4 tabelas (`chamadas`, `transcricoes`, `relatorios`, `propostas`) aparecem em **Table Editor**.
+3. **Verificar tabelas.** Confirmar que existem em `public`: `chamadas`, `transcricoes`, `relatorios`, `propostas`. Cada uma com RLS habilitado.
 
-   **Opção B — Supabase CLI (se o cliente prefere CLI):**
-   ```bash
-   npm install -D supabase
-   npx supabase link --project-ref <PROJECT_REF>
-   npx supabase db push
-   ```
+4. **Habilitar Email Auth.**
+   - **Com PAT:** `PATCH https://api.supabase.com/v1/projects/<ref>/config/auth` com `{"external_email_enabled": true, "mailer_autoconfirm": <bool>}`.
+   - **Sem PAT:** instruir o cliente: Dashboard → **Authentication → Providers → Email** → habilitar. Perguntar "Confirm email" liga ou desliga.
 
-3. **Habilitar Email Auth.**
-   - Dashboard → **Authentication → Providers → Email** → habilitar.
-   - Decisão a confirmar com o cliente: **"Confirm email" ligado ou desligado?**
-     - Desligado (recomendado pra MVP/teste): signup já loga direto.
-     - Ligado: usuário precisa clicar no link do email antes de logar.
+5. **Configurar redirect URLs do Auth.**
+   - **Com PAT:** mesmo endpoint acima, campo `uri_allow_list` (lista de URIs permitidas). Adicionar `http://localhost:3000/api/auth/callback`. Mais tarde, no Estágio 4, adicionar `https://<dominio-producao>/api/auth/callback`.
+   - **Sem PAT:** instruir o cliente: Dashboard → **Authentication → URL Configuration → Redirect URLs** → adicionar as duas.
 
-4. **Configurar redirect URLs.**
-   - Dashboard → **Authentication → URL Configuration**.
-   - Adicionar em **Redirect URLs**:
-     - `http://localhost:3000/api/auth/callback` (dev)
-     - `https://<dominio-producao>/api/auth/callback` (quando souber o domínio)
+6. **Regenerar tipos TypeScript.**
+   - **Com MCP:** `generate_typescript_types(project_id)`.
+   - **Com Supabase CLI:** `npx supabase gen types typescript --project-id <ref> > src/lib/types/database.types.ts`.
+   - Commitar a mudança: `git commit -m "feat(types): regenera database.types do schema do cliente"`.
 
-5. **Regenerar tipos do banco (substitui o stub).**
-   ```bash
-   npx supabase gen types typescript --project-id <PROJECT_REF> > src/lib/types/database.types.ts
-   ```
-   Isso substitui o stub manual por tipos reais. **Commitar a mudança.**
+7. **Rodar advisors.**
+   - **Com MCP:** `get_advisors(project_id, "security")` e `get_advisors(project_id, "performance")`.
+   - Resolver quaisquer alertas críticos antes de seguir. Reportar warnings menores ao cliente.
+
+### Decisão a confirmar com o cliente
+
+- **"Confirm email" ligado ou desligado?**
+  - Desligado (recomendado para MVP/demo): signup já loga direto.
+  - Ligado (recomendado para produção): usuário precisa clicar no link do email.
 
 ### Critério de pronto
-- Tabelas visíveis no Table Editor.
+- 4 tabelas presentes com RLS ativa.
+- Email Auth habilitado.
+- Redirect URLs configuradas (pelo menos localhost por enquanto).
 - `database.types.ts` regenerado e commitado.
-- Auth provider Email ativo.
+- Sem alertas de segurança críticos.
 
 ---
 
@@ -112,35 +127,39 @@ Anthropic API key ou OpenAI API key, quando formos habilitar geração de relat�
 
 **Pré-requisito:** Estágio 1 completo.
 
-### Passos
+### O que o cliente faz
 
-1. **Criar `.env.local`:**
+1. **Receber da IA** a URL e a publishable key prontas pra colar.
+
+2. **Criar `.env.local`:**
    ```bash
    cp .env.example .env.local
    ```
-   Editar e preencher `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Não commitar.
-
-2. **Instalar deps (se ainda não):**
-   ```bash
-   npm install
+   Preencher:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=<URL fornecida pela IA>
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=<sb_publishable_... — apesar do nome legado da variável, é a publishable nova>
+   # SUPABASE_SERVICE_ROLE_KEY=<sb_secret_...>  ← só se for usar jobs admin server-side; cuidado: nunca expor no client
    ```
 
-3. **Subir o dev server:**
+   > Nota: as variáveis no app mantêm os nomes `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` para compatibilidade com `@supabase/ssr` — o **valor** colocado em `_ANON_KEY` agora é a publishable key nova.
+
+3. **Instalar e rodar:**
    ```bash
+   npm install
    npm run dev
    ```
    Abrir http://localhost:3000.
 
 4. **Smoke test do fluxo:**
-   - Página `/` → clicar em **Criar conta**.
-   - Cadastrar email + senha (≥6 chars).
-   - Se Confirm Email estiver ligado, confirmar no email. Se desligado, vai direto pro dashboard.
-   - Em `/dashboard`, ver `Olá, <email>`.
-   - Clicar em **Sair** → volta pra `/login`.
+   - `/` → **Criar conta** → email + senha (≥6 chars).
+   - Se Confirm Email ligado, confirmar no email.
+   - `/dashboard` → vê `Olá, <email>`.
+   - **Sair** → volta pra `/login`.
 
-5. **Smoke test da API.** Com o navegador logado, em outra aba do mesmo browser:
-   - http://localhost:3000/api/chamadas → deve retornar `{"data":[]}` (com status 200).
-   - Sem cookie de sessão (curl novo) → deve retornar 401 com `{"error":{...}}`.
+5. **Smoke test da API:**
+   - Logado: http://localhost:3000/api/chamadas → `{"data":[]}`.
+   - Sem cookie (curl novo) → 401 com JSON de erro.
 
 ### Critério de pronto
 - Cadastro + login + dashboard + sair funcionam.
@@ -150,59 +169,42 @@ Anthropic API key ou OpenAI API key, quando formos habilitar geração de relat�
 
 ## Estágio 3 — Easypanel configurado
 
-**Pré-requisito:** Estágios 1 e 2 completos + credenciais do Bloco B.
+**Pré-requisito:** Estágios 1 e 2 completos + Bloco B entregue.
 
-### Passos
+### Fluxo via API (preferido quando token funciona)
 
-> **Nota sobre a API do Easypanel:** os endpoints exatos variam entre versões. Quando o cliente fornecer URL + token, primeiro explore:
+> Endpoints exatos variam entre versões do Easypanel. Primeiro explorar:
 > ```bash
 > curl -H "Authorization: Bearer <TOKEN>" <PANEL_URL>/api/trpc/projects.listProjects
 > ```
-> Se 200 → API tipo tRPC (versão moderna). Adapte as chamadas abaixo conforme a resposta. Se 404, tente `/api/v1/...`. Se nada funcionar, **caia pro fluxo via UI** documentado abaixo.
+> Se 200 → API tRPC moderna. Se 404, tentar `/api/v1/...`. Se nada, fallback UI abaixo.
 
-### Fluxo via API (quando disponível)
-
-1. **Listar projetos** para confirmar acesso:
-   ```bash
-   curl -H "Authorization: Bearer <TOKEN>" <PANEL_URL>/api/trpc/projects.listProjects
-   ```
-
-2. **Criar projeto** (se ainda não existe):
-   ```bash
-   curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-     -d '{"name":"aios"}' \
-     <PANEL_URL>/api/trpc/projects.createProject
-   ```
-
-3. **Criar service "app"** com:
-   - Source: git repo + branch `main`
-   - Build: Dockerfile, path `docker/Dockerfile`
-   - Build args:
-     - `NEXT_PUBLIC_SUPABASE_URL=<valor>`
-     - `NEXT_PUBLIC_SUPABASE_ANON_KEY=<valor>`
-   - Env vars (runtime, mesmo conteúdo):
-     - `NEXT_PUBLIC_SUPABASE_URL`
-     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-     - `SUPABASE_SERVICE_ROLE_KEY` (se aplicável)
-   - Porta exposta: `3000`
-   - Domínio: `<dominio-producao>`
+1. **Listar projetos** pra confirmar acesso.
+2. **Criar projeto** com o nome combinado.
+3. **Criar service "app":**
+   - Source: git repo + branch `main`.
+   - Build: Dockerfile, path `docker/Dockerfile`.
+   - **Build args** (necessários pois `NEXT_PUBLIC_*` são inlineados no bundle):
+     - `NEXT_PUBLIC_SUPABASE_URL=<URL>`
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key>`
+   - **Env vars (runtime):** as mesmas + opcionalmente `SUPABASE_SERVICE_ROLE_KEY` = `<sb_secret_...>` se for usar admin server-side.
+   - Porta exposta: `3000`.
+   - Domínio: `<dominio-producao>` com HTTPS.
 
 ### Fluxo via UI (fallback)
 
-Se a API não funcionar ou cliente preferir, guie pelo painel:
-
-1. Easypanel → **Create project** → nome `aios`.
+1. Easypanel → **Create project** → nome combinado.
 2. Dentro do projeto → **+ Service → App**.
-3. **Source** → **GitHub/GitLab** (autorizar se preciso) → escolher repo → branch `main`.
-4. **Build** → **Dockerfile** → path `docker/Dockerfile`.
-5. **Build Args** → adicionar `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-6. **Environment** → mesmas vars (runtime).
-7. **Domains** → adicionar domínio + ativar HTTPS.
+3. **Source** → GitHub/GitLab (autorizar) → repo → branch `main`.
+4. **Build** → Dockerfile → path `docker/Dockerfile`.
+5. **Build Args** → adicionar os dois `NEXT_PUBLIC_*`.
+6. **Environment** → mesmas vars (runtime) + opcionalmente a secret.
+7. **Domains** → adicionar domínio + HTTPS.
 8. **Save**.
 
 ### Critério de pronto
-- Service criado e configurado.
-- Build args + env vars setadas.
+- Service criado com source git + Dockerfile.
+- Build args + env vars setadas com a publishable key.
 - Domínio mapeado.
 
 ---
@@ -211,33 +213,45 @@ Se a API não funcionar ou cliente preferir, guie pelo painel:
 
 **Pré-requisito:** Estágio 3 completo.
 
-### Passos
-
 1. **Adicionar redirect URL de produção no Supabase.**
-   - Dashboard Supabase → **Authentication → URL Configuration**.
-   - Adicionar `https://<dominio-producao>/api/auth/callback` em **Redirect URLs**.
+   - Com PAT: PATCH no config/auth incluindo `https://<dominio>/api/auth/callback` em `uri_allow_list`.
+   - Sem PAT: Dashboard → Authentication → URL Configuration → adicionar.
 
-2. **Trigger deploy no Easypanel.**
-   - Via API ou clicando em **Deploy** na UI do service.
+2. **Disparar deploy** no Easypanel (API ou botão **Deploy**).
 
-3. **Acompanhar logs do build.** Se falhar:
-   - Erro em build args inlined? → conferir que `NEXT_PUBLIC_*` estão setados como **Build Args** (não só env runtime).
-   - Erro de typecheck? → rodar `npx tsc --noEmit` local primeiro.
+3. **Acompanhar logs do build.** Falhas comuns:
+   - **`NEXT_PUBLIC_*` undefined no bundle** → conferir que estão em **Build Args**, não só runtime.
+   - **Typecheck** → rodar `npx tsc --noEmit` local primeiro.
+   - **Migration ainda não aplicada** → voltar ao Estágio 1.
 
 4. **Smoke test em produção.**
-   - Abrir `https://<dominio>` → cadastrar conta → confirmar (se aplicável) → login → ver dashboard.
+   - `https://<dominio>` → cadastro → confirma (se aplicável) → login → dashboard.
    - `https://<dominio>/api/chamadas` autenticado → `{ data: [] }`.
 
 ### Critério de pronto
-- Build verde no Easypanel.
+- Build verde.
 - HTTPS ativo no domínio.
-- Fluxo end-to-end funciona em produção.
+- Cadastro/login/dashboard funcionam em produção.
 
 ---
 
 ## Pós-deploy
 
-Atualizar `configuracao-estado.md`:
+Em `configuracao-estado.md`:
 - Marcar Estágio 4 como `[x]`.
-- "Próximo passo" → começar a implementar as features de IA (geração de relatório).
+- "Próximo passo" → features de IA (geração de relatório a partir da transcrição).
 - Adicionar entrada no Histórico com data e URL de produção.
+
+A partir daqui, o cliente pede ao seu time/IA o desenvolvimento das features de IA listadas na seção "Pós-deploy" de `configuracao-estado.md`.
+
+---
+
+## Hand-off entre sessões de IA
+
+Se a sessão atual termina antes do Estágio 4, garanta que:
+
+1. **`configuracao-estado.md` está commitado** com os `[x]` corretos e o "Próximo passo" descrevendo claramente o estado.
+2. **Credenciais sensíveis NÃO foram commitadas** — `.env.local`, secret key, PAT. Conferir com `git status` antes de qualquer push.
+3. **Decisões tomadas com o cliente** (ex: Confirm email ligado/desligado, escolha de região, domínio) foram anotadas na seção "Decisões registradas" de `configuracao-estado.md`.
+
+A próxima sessão de IA lê `configuracao-estado.md` → identifica o próximo `[ ]` → vem a esta seção do playbook → retoma.
