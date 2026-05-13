@@ -1,8 +1,8 @@
 # Estado da Configuração do AIOS
 
 > **Atualizado em:** 2026-05-13
-> **Última ação:** Playbook ajustado: Supabase via MCP do Claude (cliente instala uma vez), Easypanel via API HTTP. UI manual fica como fallback de emergência.
-> **Próximo passo:** Cliente instalar MCP do Supabase em `claude.ai → Settings → Connectors` e decidir Bloco A (projeto existente vs novo + Confirm email). Depois executar **Estágio 1** de `configuracao.md`.
+> **Última ação:** Estágio 1 quase completo (Supabase): projeto G4-AIOS identificado, migration aplicada (4 tabelas + RLS), policies otimizadas, types regenerados e commitados, advisors sem alertas críticos. Pendente: cliente habilitar Email Auth + Redirect URL no Dashboard (2 cliques manuais por não ter PAT).
+> **Próximo passo:** Cliente vai a Dashboard do Supabase → Authentication → Providers → Email → habilita; depois Authentication → URL Configuration → adiciona `http://localhost:3000/api/auth/callback` em Redirect URLs. Em paralelo, criar `.env.local` (Estágio 2) com URL e publishable key entregues abaixo.
 
 > **Nota:** este arquivo registra o estado **do projeto base**. Quando um cliente clonar para instalar, ele começa com este estado (Estágio 0 = `[x]`, demais = `[ ]`) e atualiza conforme avança na própria instância.
 
@@ -37,18 +37,18 @@ Se um passo bloquear (ex: cliente não tem credencial pronta), deixar `[ ]` mas 
 - [x] Code review final aplicado (fixes de open-redirect, DELETE 404, layout metadata)
 
 ### Estágio 1 — Supabase configurado pela IA (via MCP)
-- [ ] MCP `claude_ai_Supabase` ativo na sessão do cliente (`list_organizations` funciona)
-- [ ] Cliente decidiu: projeto existente OU criar novo (com nome + região)
-- [ ] Cliente decidiu: "Confirm email" ligado ou desligado (registrar em "Decisões")
-- [ ] *(Opcional)* Personal Access Token (PAT) recebido pra automatizar Auth config
-- [ ] `project_id` identificado ou novo projeto criado (`ACTIVE_HEALTHY`)
-- [ ] Migration `0001_init.sql` aplicada via `apply_migration`
-- [ ] `list_tables` confirma 4 tabelas + `rowsecurity = true` em todas
-- [ ] Email Auth habilitado (via PAT ou cliente no Dashboard)
-- [ ] Redirect URL `http://localhost:3000/api/auth/callback` adicionada
-- [ ] `database.types.ts` regenerado via `generate_typescript_types` e commitado
-- [ ] `get_advisors` (security + performance) sem alertas críticos
-- [ ] URL + publishable key entregues ao cliente pro Estágio 2
+- [x] MCP `claude_ai_Supabase` ativo na sessão do cliente (`list_organizations` funciona)
+- [x] Cliente decidiu: projeto existente OU criar novo (com nome + região)
+- [x] Cliente decidiu: "Confirm email" ligado ou desligado (registrar em "Decisões")
+- [ ] *(Opcional)* Personal Access Token (PAT) recebido pra automatizar Auth config — cliente optou por não usar
+- [x] `project_id` identificado ou novo projeto criado (`ACTIVE_HEALTHY`)
+- [x] Migration `0001_init.sql` aplicada via `apply_migration`
+- [x] `list_tables` confirma 4 tabelas + `rowsecurity = true` em todas
+- [ ] Email Auth habilitado (via PAT ou cliente no Dashboard) — **aguardando cliente fazer manual no Dashboard**
+- [ ] Redirect URL `http://localhost:3000/api/auth/callback` adicionada — **aguardando cliente fazer manual no Dashboard**
+- [x] `database.types.ts` regenerado via `generate_typescript_types` e commitado
+- [x] `get_advisors` (security + performance) sem alertas críticos
+- [x] URL + publishable key entregues ao cliente pro Estágio 2
 
 ### Estágio 2 — App rodando local
 - [ ] `.env.local` criado e preenchido
@@ -96,7 +96,9 @@ Se um passo bloquear (ex: cliente não tem credencial pronta), deixar `[ ]` mas 
 
 Anote aqui escolhas feitas com o cliente que afetam configuração:
 
-- *(vazio — primeira decisão aparece quando começarmos Estágio 1)*
+- **2026-05-13 — Projeto Supabase:** usar projeto existente `G4-AIOS` (ref `pyenjvreoxhmasxalkiu`, org `DinastIA`, região `sa-east-1`).
+- **2026-05-13 — Confirm email:** **desligado** (`mailer_autoconfirm: true`). Signup loga direto. Decisão MVP/demo; cliente pode ligar depois antes de produção real, se quiser.
+- **2026-05-13 — PAT do Supabase:** não fornecido. Passos de Auth config (habilitar Email + Redirect URL) ficam manuais no Dashboard.
 
 ---
 
@@ -105,3 +107,4 @@ Anote aqui escolhas feitas com o cliente que afetam configuração:
 - **2026-05-13** — Scaffold finalizado. 23 commits em `main`. Build verde. Code review final aplicado. Aguardando credenciais do cliente para iniciar Estágio 1.
 - **2026-05-13** — Playbook reformulado para projeto base/template. Estágio 1 agora prevê IA configurando auth/DDL/RLS via `sb_secret_*`; cliente entrega 2 chaves (`sb_publishable_*` + `sb_secret_*`) + URL. PAT opcional pra automação total do Auth.
 - **2026-05-13** — Modelo simplificado: cliente instala MCP do Supabase no Claude (uma vez, em Settings → Connectors); IA opera via MCP tools sem precisar de chaves manuais. Easypanel continua via API HTTP. Fluxo manual de chaves vira fallback (Bloco A.1) só se MCP não funcionar.
+- **2026-05-13** — Estágio 1 executado pela IA no projeto `G4-AIOS` (ref `pyenjvreoxhmasxalkiu`, `sa-east-1`): migration `init` aplicada (4 tabelas + RLS), migration `optimize_rls_auth_uid` aplicada eliminando 16 warns `auth_rls_initplan`, types regenerados e commitados, advisors sem alertas críticos (restam 4 INFO `unused_index` esperados em DB vazia + 1 INFO `auth_db_connections_absolute` pra revisar antes de prod real). Pendente: cliente habilita Email Auth + Redirect URL no Dashboard.
