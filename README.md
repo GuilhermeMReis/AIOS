@@ -86,6 +86,48 @@ Após o primeiro deploy, adicione `https://<projeto>.vercel.app/api/auth/callbac
 
 > **Dockerfile incluso (`docker/Dockerfile`)** é só pra self-host opcional — a Vercel usa o runtime nativo do Next.js e ignora.
 
+## Dados gerados pela IA por chamada
+
+Para cada chamada que entra no AIOS (transcrição colada manualmente no MVP), a IA produz dois artefatos com **campos narrativos** + **KPIs estruturados** lado a lado. Os KPIs permitem listagens, filtros, agregações e dashboards futuros.
+
+### Relatório de análise da call (`relatorios`)
+
+| Campo | Tipo | O que é |
+|---|---|---|
+| `conteudo` | text (markdown) | Análise narrativa completa da call — fonte de verdade longa |
+| `resumo_executivo` | text | Síntese de 3-5 linhas pro vendedor reler rápido |
+| `sentimento` | `positivo` / `neutro` / `negativo` | Termômetro geral da conversa |
+| `dores_identificadas` | jsonb (array) | Pain points levantados pelo prospect |
+| `objecoes` | jsonb (array) | Resistências/dúvidas que apareceram |
+| `bant_budget` | text | Orçamento — "tem? Quanto?" |
+| `bant_autoridade` | text | "É o decisor? Quem mais decide?" |
+| `bant_necessidade` | text | Dor real e urgência |
+| `bant_prazo` | text | Quando precisa estar implementado |
+| `proximos_passos` | jsonb (array) | Ações combinadas ao fim da call (com datas) |
+| `probabilidade_fechamento` | smallint (0-100) | Score estimado de conversão |
+| `valor_estimado_brl` | numeric(12,2) | Ticket potencial estimado do deal |
+| `gerado_em` | timestamptz | Quando o relatório foi gerado |
+
+### Proposta comercial (`propostas`)
+
+| Campo | Tipo | O que é |
+|---|---|---|
+| `link_externo` | text | URL da proposta hospedada (PDF, página de assinatura, etc.) |
+| `titulo` | text | Ex: "Proposta de implementação AIOS — Acme" |
+| `resumo_solucao` | text | O que está sendo entregue, em prosa curta |
+| `escopo` | jsonb (array) | Lista estruturada de entregáveis/módulos |
+| `valor_total` | numeric(12,2) | Valor total da proposta |
+| `moeda` | text (default `BRL`) | Código ISO 4217 da moeda |
+| `condicoes_pagamento` | text | Ex: "30/60/90" ou "50% entrada + 50% entrega" |
+| `prazo_entrega_dias` | smallint | Quantos dias úteis até a entrega |
+| `validade_dias` | smallint (default 30) | Validade comercial da proposta |
+| `enviada_em` | timestamptz | Quando foi enviada (null = ainda rascunho) |
+| `versao` | smallint (default 1) | Iteração — útil em negociações que viram v2, v3... |
+| `status` | enum (check) | `rascunho` / `enviada` / `em_negociacao` / `aceita` / `rejeitada` / `expirada` |
+| `created_at` | timestamptz | Quando a proposta foi criada |
+
+> Todos os campos exceto `chamada_id` e `link_externo` (e os defaults) são **nullable**. A IA preenche só o que conseguiu extrair sem quebrar o insert — campos não preenchidos sinalizam que aquela informação faltou na call e podem virar follow-up.
+
 ## API
 
 Todas as rotas exigem sessão Supabase válida (cookie). Erro padrão: `{ error: { code, message, details? } }`.

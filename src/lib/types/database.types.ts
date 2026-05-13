@@ -41,24 +41,54 @@ export type Database = {
       propostas: {
         Row: {
           chamada_id: string
+          condicoes_pagamento: string | null
           created_at: string
+          enviada_em: string | null
+          escopo: Json
           id: string
           link_externo: string
+          moeda: string
+          prazo_entrega_dias: number | null
+          resumo_solucao: string | null
           status: string
+          titulo: string | null
+          validade_dias: number
+          valor_total: number | null
+          versao: number
         }
         Insert: {
           chamada_id: string
+          condicoes_pagamento?: string | null
           created_at?: string
+          enviada_em?: string | null
+          escopo?: Json
           id?: string
           link_externo: string
+          moeda?: string
+          prazo_entrega_dias?: number | null
+          resumo_solucao?: string | null
           status?: string
+          titulo?: string | null
+          validade_dias?: number
+          valor_total?: number | null
+          versao?: number
         }
         Update: {
           chamada_id?: string
+          condicoes_pagamento?: string | null
           created_at?: string
+          enviada_em?: string | null
+          escopo?: Json
           id?: string
           link_externo?: string
+          moeda?: string
+          prazo_entrega_dias?: number | null
+          resumo_solucao?: string | null
           status?: string
+          titulo?: string | null
+          validade_dias?: number
+          valor_total?: number | null
+          versao?: number
         }
         Relationships: [
           {
@@ -72,22 +102,55 @@ export type Database = {
       }
       relatorios: {
         Row: {
+          bant_autoridade: string | null
+          bant_budget: string | null
+          bant_necessidade: string | null
+          bant_prazo: string | null
           chamada_id: string
           conteudo: string
+          dores_identificadas: Json
           gerado_em: string
           id: string
+          objecoes: Json
+          probabilidade_fechamento: number | null
+          proximos_passos: Json
+          resumo_executivo: string | null
+          sentimento: string | null
+          valor_estimado_brl: number | null
         }
         Insert: {
+          bant_autoridade?: string | null
+          bant_budget?: string | null
+          bant_necessidade?: string | null
+          bant_prazo?: string | null
           chamada_id: string
           conteudo: string
+          dores_identificadas?: Json
           gerado_em?: string
           id?: string
+          objecoes?: Json
+          probabilidade_fechamento?: number | null
+          proximos_passos?: Json
+          resumo_executivo?: string | null
+          sentimento?: string | null
+          valor_estimado_brl?: number | null
         }
         Update: {
+          bant_autoridade?: string | null
+          bant_budget?: string | null
+          bant_necessidade?: string | null
+          bant_prazo?: string | null
           chamada_id?: string
           conteudo?: string
+          dores_identificadas?: Json
           gerado_em?: string
           id?: string
+          objecoes?: Json
+          probabilidade_fechamento?: number | null
+          proximos_passos?: Json
+          resumo_executivo?: string | null
+          sentimento?: string | null
+          valor_estimado_brl?: number | null
         }
         Relationships: [
           {
