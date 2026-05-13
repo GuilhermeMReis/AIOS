@@ -1,6 +1,9 @@
 # Configuração do AIOS — Playbook
 
-> **Este é um projeto base / template.** Cada cliente que quer rodar o AIOS clona este repositório e executa este playbook (preferencialmente com uma sessão de IA assistindo). A IA usa as **credenciais Supabase** fornecidas pelo cliente para configurar auth, criar tabelas, RLS e tipos — o cliente não precisa abrir o SQL Editor.
+> **Este é um projeto base / template.** Cada cliente que quer rodar o AIOS clona este repositório e executa este playbook com uma sessão de IA (Claude) assistindo. A IA opera duas plataformas em nome do cliente:
+>
+> - **Supabase** — via **MCP** instalado pelo cliente na sua sessão Claude (`claude_ai_Supabase`). A IA aplica migration, configura auth, regera tipos. O cliente não toca em SQL Editor nem copia chaves.
+> - **Easypanel** — via **API HTTP** com token fornecido pelo cliente. A IA cria projeto, service, build args, env vars e dispara deploy.
 
 **Use sempre junto com `configuracao-estado.md`** — esse outro arquivo registra o que já foi feito e qual o próximo passo. Uma sessão de IA retomando a instalação deve:
 
@@ -18,23 +21,40 @@ A IA pede apenas o necessário pra cada estágio. Não pedir tudo no início —
 
 ### Bloco A — Supabase (necessário a partir do Estágio 1)
 
-Peça ao cliente:
+**Pré-requisito do cliente:** instalar o **MCP do Supabase no Claude** (uma vez, antes da primeira sessão de configuração). Passo a passo:
 
-1. **Criar um projeto novo** em https://supabase.com/dashboard (se ainda não tem). Recomendar região próxima dos usuários finais (ex: `sa-east-1` São Paulo para Brasil). Nome livre — ex: `aios-<cliente>`.
+1. Cliente vai a https://claude.ai → **Settings → Connectors**.
+2. **Add custom connector** → escolher Supabase (ou instalar via marketplace de MCPs).
+3. Fazer login na conta Supabase quando solicitado.
+4. Confirmar que o MCP aparece como ativo (`claude_ai_Supabase`).
 
-2. Compartilhar com você **3 valores** do projeto. Onde achar: Supabase Dashboard → **Project Settings → API**.
+> **Verificação:** na próxima conversa com a IA, ela deve conseguir rodar `list_organizations` e ver as orgs do cliente. Se não conseguir, o MCP não está conectado nessa sessão — pedir pro cliente conferir Settings.
 
-   | Valor | Formato | Para que serve |
-   |---|---|---|
-   | **Project URL** | `https://<ref>.supabase.co` | Endpoint do projeto. Vai no `.env.local` do app. |
-   | **Publishable key** | `sb_publishable_...` | Chave pública nova (substitui `anon`). Vai no `.env.local`. Segura no front. |
-   | **Secret key** | `sb_secret_...` | Chave secreta nova (substitui `service_role`). **NÃO vai no front**. É com ela que a IA aplica DDL, configura RLS, regera tipos. |
+Com o MCP ativo, a IA tem acesso a: `list_projects`, `apply_migration`, `list_tables`, `generate_typescript_types`, `get_advisors`, `get_publishable_keys`, `get_project_url`, `execute_sql`, `create_project`, e mais.
 
-   > **Sobre as chaves novas:** desde nov-2025 o Supabase usa `sb_publishable_*` e `sb_secret_*` no lugar de `anon`/`service_role` legados. Projetos criados depois dessa data só recebem as novas. Se o cliente tiver um projeto antigo com chaves legadas, elas ainda funcionam (a publishable substitui a anon 1-pra-1, a secret substitui a service_role 1-pra-1), mas **prefira as novas**.
+O cliente só precisa decidir/informar:
 
-   > **Canal seguro pra `sb_secret_*`:** essa chave dá poder total sobre o banco. O cliente nunca deve postá-la em chat público, screenshot, repositório, etc. Combinar canal cifrado (1Password share, gerenciador de senhas, mensagem direta criptografada).
+1. **Usar projeto existente ou criar novo?**
+   - Existente: cliente diz o **nome ou ref** do projeto. A IA confirma via `list_projects`.
+   - Novo: cliente decide **nome** e **região** (ex: `sa-east-1` São Paulo). IA chama `get_cost` → `confirm_cost` → `create_project`.
 
-3. *(Opcional, recomendado para automação total do Estágio 1)* **Personal Access Token (PAT)** do Supabase — Dashboard → **Account → Access Tokens → Generate new token**. Usado para configurar **redirect URLs do Auth provider** via Management API. Sem o PAT, esses 2 cliques ficam manuais no Dashboard; com ele, totalmente automatizado.
+2. **"Confirm email" no Auth ligado ou desligado?**
+   - Desligado: signup já loga direto (bom pra MVP/demo).
+   - Ligado: usuário precisa confirmar pelo email (recomendado pra produção).
+
+*Opcionalmente,* se o cliente quiser **automação total da configuração do Auth provider** (atualmente o MCP do Supabase não cobre Auth → Providers → Email config nem Redirect URLs), ele pode gerar um **Personal Access Token (PAT)** em Dashboard → **Account → Access Tokens** e fornecer pra IA. Sem o PAT, esses 2 cliques ficam manuais no Dashboard do cliente.
+
+### Bloco A.1 — Fallback sem MCP (raro)
+
+Se por algum motivo o cliente não puder instalar o MCP, a IA pode operar via API HTTP usando chaves manuais. Nesse caso, pedir:
+
+| Valor | Formato | Onde achar |
+|---|---|---|
+| **Project URL** | `https://<ref>.supabase.co` | Dashboard → Project Settings → API |
+| **Publishable key** | `sb_publishable_...` | Mesmo lugar (substitui `anon` legada) |
+| **Secret key** | `sb_secret_...` | Mesmo lugar, "Reveal" — **canal seguro: nunca chat público** |
+
+Migration vai via `psql -h db.<ref>.supabase.co -U postgres -f supabase/migrations/0001_init.sql` (senha = secret key). Tipos via `npx supabase gen types`. Demais passos seguem o Estágio 1 com adaptações HTTP.
 
 ### Bloco B — Easypanel (necessário a partir do Estágio 3)
 
@@ -50,76 +70,75 @@ Anthropic API key ou OpenAI API key quando o cliente decidir habilitar geração
 
 ---
 
-## Estágio 1 — Supabase configurado pela IA
+## Estágio 1 — Supabase configurado pela IA (via MCP)
 
-**Pré-requisito:** Bloco A entregue (URL + publishable + secret).
+**Pré-requisito:** MCP `claude_ai_Supabase` ativo na sessão do cliente + decisões do Bloco A (projeto existente/novo + Confirm email sim/não) + opcionalmente PAT.
 
-### O que a IA executa
+### Passos da IA
 
-A IA tem 3 caminhos para operar o projeto Supabase do cliente, em ordem de preferência:
+1. **Confirmar acesso ao MCP.** Rode `list_organizations`. Espere ver a org do cliente. Se falhar, instruir cliente a conferir Settings → Connectors do Claude.
 
-**Caminho 1 — MCP do Supabase (preferido):** se a sessão tiver o MCP `claude_ai_Supabase` ativo, use as ferramentas:
-- `list_projects` → confirma o `project_id` baseado na URL.
-- `apply_migration` → roda o SQL.
-- `list_tables` → verifica criação.
-- `get_advisors` → checa segurança/performance.
-- `generate_typescript_types` → regera tipos.
-- `get_project_url` / `get_publishable_keys` → confirma valores fornecidos.
+2. **Identificar / criar projeto.**
+   - Existente: `list_projects` → achar pelo nome/ref informado pelo cliente. Anotar `project_id`.
+   - Novo: `get_cost(type:"project", organization_id)` → comunicar valor ao cliente → `confirm_cost(...)` recebendo o `confirm_cost_id` → `create_project(name, region, organization_id, confirm_cost_id)`. Aguardar status `ACTIVE_HEALTHY` (pode levar alguns minutos; rechecar com `get_project`).
 
-> Com MCP, a `sb_secret_*` é redundante — a autenticação já vem do MCP do usuário. Peça mesmo assim, porque a IA da próxima sessão (ou um operador humano) pode não ter MCP.
-
-**Caminho 2 — psql via secret key:** sem MCP, conectar direto no banco e rodar a migration:
-```bash
-# o cliente fornece a secret; URL do banco é db.<ref>.supabase.co
-PGPASSWORD='<sb_secret_...>' psql \
-  -h db.<ref>.supabase.co -p 5432 -U postgres -d postgres \
-  -f supabase/migrations/0001_init.sql
-```
-Atenção: a porta 5432 pode estar bloqueada em algumas redes. Alternativa: usar a porta 6543 (pooler) ou o SQL REST endpoint.
-
-**Caminho 3 — REST `pg_meta`:** via HTTP API com a `sb_secret_*` como bearer, postar SQL em `<URL>/pg/query` (endpoint interno do Supabase). Menos comum, manter como fallback.
-
-### Passos (executar em sequência)
-
-1. **Validar credenciais.**
-   ```bash
-   curl -s "<NEXT_PUBLIC_SUPABASE_URL>/auth/v1/health" -H "apikey: <sb_publishable_...>" | head -1
+3. **Aplicar a migration.**
    ```
-   Esperado: `{"status":"OK"}` ou similar.
+   apply_migration(
+     project_id,
+     name: "init",
+     query: <conteúdo de supabase/migrations/0001_init.sql>
+   )
+   ```
 
-2. **Aplicar a migration** `supabase/migrations/0001_init.sql` pelo caminho escolhido acima.
+4. **Verificar tabelas.** `list_tables(project_id, schemas: ["public"], verbose: false)`. Espere ver `chamadas`, `transcricoes`, `relatorios`, `propostas`. Pra confirmar RLS, fazer `verbose: true` ou rodar `execute_sql("select tablename, rowsecurity from pg_tables where schemaname='public'")` e confirmar `rowsecurity = true` em todas.
 
-3. **Verificar tabelas.** Confirmar que existem em `public`: `chamadas`, `transcricoes`, `relatorios`, `propostas`. Cada uma com RLS habilitado.
+5. **Configurar Email Auth.**
+   - **Com PAT do cliente:**
+     ```bash
+     curl -X PATCH https://api.supabase.com/v1/projects/<ref>/config/auth \
+       -H "Authorization: Bearer <PAT>" -H "Content-Type: application/json" \
+       -d '{"external_email_enabled": true, "mailer_autoconfirm": <true|false>}'
+     ```
+     `mailer_autoconfirm: true` = "Confirm email" **desligado** (signup loga direto). `false` = ligado.
 
-4. **Habilitar Email Auth.**
-   - **Com PAT:** `PATCH https://api.supabase.com/v1/projects/<ref>/config/auth` com `{"external_email_enabled": true, "mailer_autoconfirm": <bool>}`.
-   - **Sem PAT:** instruir o cliente: Dashboard → **Authentication → Providers → Email** → habilitar. Perguntar "Confirm email" liga ou desliga.
+   - **Sem PAT:** instruir cliente a abrir Dashboard → **Authentication → Providers → Email** → habilitar + configurar Confirm email conforme decisão. Levar ~30 segundos.
 
-5. **Configurar redirect URLs do Auth.**
-   - **Com PAT:** mesmo endpoint acima, campo `uri_allow_list` (lista de URIs permitidas). Adicionar `http://localhost:3000/api/auth/callback`. Mais tarde, no Estágio 4, adicionar `https://<dominio-producao>/api/auth/callback`.
-   - **Sem PAT:** instruir o cliente: Dashboard → **Authentication → URL Configuration → Redirect URLs** → adicionar as duas.
+6. **Adicionar Redirect URL de localhost.**
+   - **Com PAT:** mesmo endpoint, campo `uri_allow_list` adicionar `http://localhost:3000/api/auth/callback`.
+   - **Sem PAT:** instruir cliente em Dashboard → **Authentication → URL Configuration → Redirect URLs** → adicionar.
 
-6. **Regenerar tipos TypeScript.**
-   - **Com MCP:** `generate_typescript_types(project_id)`.
-   - **Com Supabase CLI:** `npx supabase gen types typescript --project-id <ref> > src/lib/types/database.types.ts`.
-   - Commitar a mudança: `git commit -m "feat(types): regenera database.types do schema do cliente"`.
+7. **Regenerar tipos TypeScript.**
+   ```
+   generate_typescript_types(project_id)
+   ```
+   Salvar o resultado em `src/lib/types/database.types.ts` (sobrescrevendo o stub) e commitar:
+   ```bash
+   git add src/lib/types/database.types.ts
+   git commit -m "feat(types): regenera database.types do schema do cliente"
+   ```
 
-7. **Rodar advisors.**
-   - **Com MCP:** `get_advisors(project_id, "security")` e `get_advisors(project_id, "performance")`.
-   - Resolver quaisquer alertas críticos antes de seguir. Reportar warnings menores ao cliente.
+8. **Rodar advisors.**
+   ```
+   get_advisors(project_id, type: "security")
+   get_advisors(project_id, type: "performance")
+   ```
+   Resolver alertas críticos antes de seguir. Reportar warnings ao cliente com link de remediação.
 
-### Decisão a confirmar com o cliente
-
-- **"Confirm email" ligado ou desligado?**
-  - Desligado (recomendado para MVP/demo): signup já loga direto.
-  - Ligado (recomendado para produção): usuário precisa clicar no link do email.
+9. **Pegar URL e publishable key** pra preparar o `.env.local` do Estágio 2:
+   ```
+   get_project_url(project_id)
+   get_publishable_keys(project_id)
+   ```
+   Anotar os valores (não commitar). Entregar ao cliente prontos pra colar.
 
 ### Critério de pronto
-- 4 tabelas presentes com RLS ativa.
-- Email Auth habilitado.
-- Redirect URLs configuradas (pelo menos localhost por enquanto).
+- 4 tabelas presentes em `public` com `rowsecurity = true`.
+- Email Auth habilitado, decisão sobre Confirm email registrada em `configuracao-estado.md`.
+- Redirect URL de localhost configurada.
 - `database.types.ts` regenerado e commitado.
-- Sem alertas de segurança críticos.
+- Sem alertas críticos nos advisors.
+- URL + publishable key entregues ao cliente.
 
 ---
 
@@ -167,45 +186,77 @@ Atenção: a porta 5432 pode estar bloqueada em algumas redes. Alternativa: usar
 
 ---
 
-## Estágio 3 — Easypanel configurado
+## Estágio 3 — Easypanel configurado pela IA (via API)
 
-**Pré-requisito:** Estágios 1 e 2 completos + Bloco B entregue.
+**Pré-requisito:** Estágios 1 e 2 completos + Bloco B entregue (panel URL + API token + nome do projeto + repo git + domínio).
 
-### Fluxo via API (preferido quando token funciona)
+### Passos da IA
 
-> Endpoints exatos variam entre versões do Easypanel. Primeiro explorar:
-> ```bash
-> curl -H "Authorization: Bearer <TOKEN>" <PANEL_URL>/api/trpc/projects.listProjects
-> ```
-> Se 200 → API tRPC moderna. Se 404, tentar `/api/v1/...`. Se nada, fallback UI abaixo.
+1. **Descobrir o formato da API** do Easypanel desse cliente:
+   ```bash
+   curl -s -H "Authorization: Bearer <TOKEN>" <PANEL_URL>/api/trpc/projects.listProjects
+   ```
+   - **200 OK** com JSON → API tRPC moderna (padrão em versões recentes do Easypanel). Seguir os passos 2-5 abaixo.
+   - **404 / 401** → tentar `<PANEL_URL>/api/v1/projects`. Se também falhar, ver "Fallback de emergência" no rodapé desta seção.
 
-1. **Listar projetos** pra confirmar acesso.
-2. **Criar projeto** com o nome combinado.
-3. **Criar service "app":**
-   - Source: git repo + branch `main`.
-   - Build: Dockerfile, path `docker/Dockerfile`.
-   - **Build args** (necessários pois `NEXT_PUBLIC_*` são inlineados no bundle):
-     - `NEXT_PUBLIC_SUPABASE_URL=<URL>`
-     - `NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key>`
-   - **Env vars (runtime):** as mesmas + opcionalmente `SUPABASE_SERVICE_ROLE_KEY` = `<sb_secret_...>` se for usar admin server-side.
-   - Porta exposta: `3000`.
-   - Domínio: `<dominio-producao>` com HTTPS.
+2. **Criar projeto** (se ainda não existe no painel):
+   ```bash
+   curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+     -d '{"json":{"name":"<NOME_PROJETO>"}}' \
+     <PANEL_URL>/api/trpc/projects.createProject
+   ```
 
-### Fluxo via UI (fallback)
+3. **Criar service "app"** com source git + build via Dockerfile:
+   ```bash
+   curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+     -d '{
+       "json": {
+         "projectName": "<NOME_PROJETO>",
+         "serviceName": "app",
+         "source": {
+           "type": "github",
+           "owner": "<owner>",
+           "repo": "<repo>",
+           "branch": "main",
+           "buildPath": "/"
+         },
+         "build": {
+           "type": "dockerfile",
+           "file": "docker/Dockerfile"
+         }
+       }
+     }' \
+     <PANEL_URL>/api/trpc/services.app.createService
+   ```
+   > Endpoints exatos (`projects.createProject`, `services.app.createService`, etc.) podem variar entre versões. Use o resultado do passo 1 pra inferir o namespace correto, ou consulte a doc do Easypanel do cliente.
 
+4. **Definir Build Args + Env vars + porta + domínio:**
+   - **Build args** (necessários porque `NEXT_PUBLIC_*` são inlineados no bundle no build time):
+     - `NEXT_PUBLIC_SUPABASE_URL=<URL do Estágio 1>`
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key do Estágio 1>`
+   - **Env vars (runtime):** as mesmas duas, mais opcionalmente `SUPABASE_SERVICE_ROLE_KEY=<sb_secret_...>` se forem usar jobs admin server-side.
+   - **Porta exposta:** `3000`.
+   - **Domínio:** `<dominio do cliente>` com HTTPS ativo (Easypanel emite certificado automático).
+
+   Cada um desses ajustes é um endpoint próprio (tipicamente `services.app.updateEnv`, `services.app.updateDomains`, etc.). Encadear as chamadas em sequência e validar 200 em cada uma.
+
+5. **Validar configuração final** — `GET` no service e conferir que build args, env vars e domínio estão como esperado antes de partir pro Estágio 4.
+
+### Fallback de emergência (UI manual)
+
+Se a API estiver indisponível ou o token sem permissão, pedir pro cliente fazer o setup manual:
 1. Easypanel → **Create project** → nome combinado.
-2. Dentro do projeto → **+ Service → App**.
-3. **Source** → GitHub/GitLab (autorizar) → repo → branch `main`.
-4. **Build** → Dockerfile → path `docker/Dockerfile`.
-5. **Build Args** → adicionar os dois `NEXT_PUBLIC_*`.
-6. **Environment** → mesmas vars (runtime) + opcionalmente a secret.
-7. **Domains** → adicionar domínio + HTTPS.
-8. **Save**.
+2. **+ Service → App** → Source GitHub/GitLab → repo → branch `main`.
+3. **Build** → Dockerfile → path `docker/Dockerfile`.
+4. **Build Args** → os dois `NEXT_PUBLIC_*`.
+5. **Environment** → mesmas vars (runtime) + opcionalmente a secret.
+6. **Domains** → adicionar domínio + HTTPS.
+7. **Save**.
 
 ### Critério de pronto
-- Service criado com source git + Dockerfile.
+- Service criado com source git + Dockerfile via API.
 - Build args + env vars setadas com a publishable key.
-- Domínio mapeado.
+- Domínio mapeado e HTTPS provisionado.
 
 ---
 

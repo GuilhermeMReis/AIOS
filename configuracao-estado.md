@@ -1,8 +1,8 @@
 # Estado da Configuração do AIOS
 
 > **Atualizado em:** 2026-05-13
-> **Última ação:** Playbook reescrito para o modelo "projeto base + IA configura via secret key". Scaffold inicial finalizado (24 commits em `main`, build verde, code review final aplicado).
-> **Próximo passo:** Cliente fornecer Bloco A (URL + `sb_publishable_*` + `sb_secret_*`) para executar **Estágio 1** de `configuracao.md`.
+> **Última ação:** Playbook ajustado: Supabase via MCP do Claude (cliente instala uma vez), Easypanel via API HTTP. UI manual fica como fallback de emergência.
+> **Próximo passo:** Cliente instalar MCP do Supabase em `claude.ai → Settings → Connectors` e decidir Bloco A (projeto existente vs novo + Confirm email). Depois executar **Estágio 1** de `configuracao.md`.
 
 > **Nota:** este arquivo registra o estado **do projeto base**. Quando um cliente clonar para instalar, ele começa com este estado (Estágio 0 = `[x]`, demais = `[ ]`) e atualiza conforme avança na própria instância.
 
@@ -36,18 +36,19 @@ Se um passo bloquear (ex: cliente não tem credencial pronta), deixar `[ ]` mas 
 - [x] README com setup e deploy
 - [x] Code review final aplicado (fixes de open-redirect, DELETE 404, layout metadata)
 
-### Estágio 1 — Supabase configurado pela IA
-- [ ] Credenciais recebidas do cliente: **Project URL** + **`sb_publishable_*`** + **`sb_secret_*`**
-- [ ] *(Opcional)* Personal Access Token (PAT) recebido pra automatizar config do Auth
-- [ ] Validação rápida (curl no /auth/v1/health usando a publishable)
-- [ ] Migration `0001_init.sql` aplicada (via MCP, psql ou REST com a secret)
-- [ ] 4 tabelas presentes com RLS ativa (`list_tables` ou query de verificação)
-- [ ] Email Auth habilitado
-- [ ] Decisão "Confirm email" tomada com o cliente (registrar em "Decisões")
+### Estágio 1 — Supabase configurado pela IA (via MCP)
+- [ ] MCP `claude_ai_Supabase` ativo na sessão do cliente (`list_organizations` funciona)
+- [ ] Cliente decidiu: projeto existente OU criar novo (com nome + região)
+- [ ] Cliente decidiu: "Confirm email" ligado ou desligado (registrar em "Decisões")
+- [ ] *(Opcional)* Personal Access Token (PAT) recebido pra automatizar Auth config
+- [ ] `project_id` identificado ou novo projeto criado (`ACTIVE_HEALTHY`)
+- [ ] Migration `0001_init.sql` aplicada via `apply_migration`
+- [ ] `list_tables` confirma 4 tabelas + `rowsecurity = true` em todas
+- [ ] Email Auth habilitado (via PAT ou cliente no Dashboard)
 - [ ] Redirect URL `http://localhost:3000/api/auth/callback` adicionada
-- [ ] `database.types.ts` regenerado a partir do schema real do cliente
-- [ ] `get_advisors` rodado — sem alertas críticos
-- [ ] Mudança commitada
+- [ ] `database.types.ts` regenerado via `generate_typescript_types` e commitado
+- [ ] `get_advisors` (security + performance) sem alertas críticos
+- [ ] URL + publishable key entregues ao cliente pro Estágio 2
 
 ### Estágio 2 — App rodando local
 - [ ] `.env.local` criado e preenchido
@@ -60,19 +61,18 @@ Se um passo bloquear (ex: cliente não tem credencial pronta), deixar `[ ]` mas 
 - [ ] `GET /api/chamadas` autenticado → `{ data: [] }`
 - [ ] `GET /api/chamadas` sem auth → 401 com JSON de erro
 
-### Estágio 3 — Easypanel configurado
+### Estágio 3 — Easypanel configurado pela IA (via API)
 - [ ] Credenciais recebidas (URL do painel + API token)
-- [ ] Nome do projeto definido com cliente
-- [ ] Repositório git acessível ao Easypanel (deploy key/PAT configurado)
-- [ ] Domínio público definido com cliente
-- [ ] API do Easypanel explorada e endpoints confirmados (ou fallback pra UI documentado)
-- [ ] Projeto criado no painel
-- [ ] Service "app" criado com source git
-- [ ] Build configurado (Dockerfile path `docker/Dockerfile`)
+- [ ] Nome do projeto, repo git e domínio definidos com cliente
+- [ ] Repositório git acessível ao Easypanel (deploy key/PAT do provider configurado)
+- [ ] Formato da API descoberto (tRPC moderna vs `/api/v1/*`)
+- [ ] Projeto criado no painel via API
+- [ ] Service "app" criado com source git + Dockerfile (`docker/Dockerfile`)
 - [ ] Build Args setados (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
 - [ ] Env vars de runtime setadas
 - [ ] Porta 3000 exposta
-- [ ] Domínio mapeado com HTTPS
+- [ ] Domínio mapeado com HTTPS provisionado
+- [ ] Configuração validada via GET no service
 
 ### Estágio 4 — Deploy ativo
 - [ ] Redirect URL de produção adicionada no Supabase
@@ -104,3 +104,4 @@ Anote aqui escolhas feitas com o cliente que afetam configuração:
 
 - **2026-05-13** — Scaffold finalizado. 23 commits em `main`. Build verde. Code review final aplicado. Aguardando credenciais do cliente para iniciar Estágio 1.
 - **2026-05-13** — Playbook reformulado para projeto base/template. Estágio 1 agora prevê IA configurando auth/DDL/RLS via `sb_secret_*`; cliente entrega 2 chaves (`sb_publishable_*` + `sb_secret_*`) + URL. PAT opcional pra automação total do Auth.
+- **2026-05-13** — Modelo simplificado: cliente instala MCP do Supabase no Claude (uma vez, em Settings → Connectors); IA opera via MCP tools sem precisar de chaves manuais. Easypanel continua via API HTTP. Fluxo manual de chaves vira fallback (Bloco A.1) só se MCP não funcionar.
