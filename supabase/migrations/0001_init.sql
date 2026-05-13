@@ -15,13 +15,13 @@ create index chamadas_user_id_idx on public.chamadas(user_id);
 alter table public.chamadas enable row level security;
 
 create policy "chamadas_select_own" on public.chamadas
-  for select using (auth.uid() = user_id);
+  for select using ((select auth.uid()) = user_id);
 create policy "chamadas_insert_own" on public.chamadas
-  for insert with check (auth.uid() = user_id);
+  for insert with check ((select auth.uid()) = user_id);
 create policy "chamadas_update_own" on public.chamadas
-  for update using (auth.uid() = user_id);
+  for update using ((select auth.uid()) = user_id);
 create policy "chamadas_delete_own" on public.chamadas
-  for delete using (auth.uid() = user_id);
+  for delete using ((select auth.uid()) = user_id);
 
 -- ========== transcricoes ==========
 create table public.transcricoes (
@@ -40,7 +40,7 @@ create policy "transcricoes_select_own" on public.transcricoes
     exists (
       select 1 from public.chamadas
       where chamadas.id = transcricoes.chamada_id
-        and chamadas.user_id = auth.uid()
+        and chamadas.user_id = (select auth.uid())
     )
   );
 create policy "transcricoes_insert_own" on public.transcricoes
@@ -48,7 +48,7 @@ create policy "transcricoes_insert_own" on public.transcricoes
     exists (
       select 1 from public.chamadas
       where chamadas.id = transcricoes.chamada_id
-        and chamadas.user_id = auth.uid()
+        and chamadas.user_id = (select auth.uid())
     )
   );
 create policy "transcricoes_update_own" on public.transcricoes
@@ -56,7 +56,7 @@ create policy "transcricoes_update_own" on public.transcricoes
     exists (
       select 1 from public.chamadas
       where chamadas.id = transcricoes.chamada_id
-        and chamadas.user_id = auth.uid()
+        and chamadas.user_id = (select auth.uid())
     )
   );
 create policy "transcricoes_delete_own" on public.transcricoes
@@ -64,7 +64,7 @@ create policy "transcricoes_delete_own" on public.transcricoes
     exists (
       select 1 from public.chamadas
       where chamadas.id = transcricoes.chamada_id
-        and chamadas.user_id = auth.uid()
+        and chamadas.user_id = (select auth.uid())
     )
   );
 
@@ -85,7 +85,7 @@ create policy "relatorios_select_own" on public.relatorios
     exists (
       select 1 from public.chamadas
       where chamadas.id = relatorios.chamada_id
-        and chamadas.user_id = auth.uid()
+        and chamadas.user_id = (select auth.uid())
     )
   );
 create policy "relatorios_insert_own" on public.relatorios
@@ -93,7 +93,7 @@ create policy "relatorios_insert_own" on public.relatorios
     exists (
       select 1 from public.chamadas
       where chamadas.id = relatorios.chamada_id
-        and chamadas.user_id = auth.uid()
+        and chamadas.user_id = (select auth.uid())
     )
   );
 create policy "relatorios_update_own" on public.relatorios
@@ -101,7 +101,7 @@ create policy "relatorios_update_own" on public.relatorios
     exists (
       select 1 from public.chamadas
       where chamadas.id = relatorios.chamada_id
-        and chamadas.user_id = auth.uid()
+        and chamadas.user_id = (select auth.uid())
     )
   );
 create policy "relatorios_delete_own" on public.relatorios
@@ -109,7 +109,7 @@ create policy "relatorios_delete_own" on public.relatorios
     exists (
       select 1 from public.chamadas
       where chamadas.id = relatorios.chamada_id
-        and chamadas.user_id = auth.uid()
+        and chamadas.user_id = (select auth.uid())
     )
   );
 
@@ -131,7 +131,7 @@ create policy "propostas_select_own" on public.propostas
     exists (
       select 1 from public.chamadas
       where chamadas.id = propostas.chamada_id
-        and chamadas.user_id = auth.uid()
+        and chamadas.user_id = (select auth.uid())
     )
   );
 create policy "propostas_insert_own" on public.propostas
@@ -139,7 +139,7 @@ create policy "propostas_insert_own" on public.propostas
     exists (
       select 1 from public.chamadas
       where chamadas.id = propostas.chamada_id
-        and chamadas.user_id = auth.uid()
+        and chamadas.user_id = (select auth.uid())
     )
   );
 create policy "propostas_update_own" on public.propostas
@@ -147,7 +147,7 @@ create policy "propostas_update_own" on public.propostas
     exists (
       select 1 from public.chamadas
       where chamadas.id = propostas.chamada_id
-        and chamadas.user_id = auth.uid()
+        and chamadas.user_id = (select auth.uid())
     )
   );
 create policy "propostas_delete_own" on public.propostas
@@ -155,6 +155,6 @@ create policy "propostas_delete_own" on public.propostas
     exists (
       select 1 from public.chamadas
       where chamadas.id = propostas.chamada_id
-        and chamadas.user_id = auth.uid()
+        and chamadas.user_id = (select auth.uid())
     )
   );
