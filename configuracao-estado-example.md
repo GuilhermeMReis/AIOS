@@ -38,7 +38,7 @@ Se um passo bloquear (ex: cliente não tem credencial pronta), deixar `[ ]` mas 
 - [x] 4 entidades de domínio (validator + repo + service + routes)
 - [x] Migration SQL com RLS
 - [x] Páginas de auth (login/cadastro/sair/callback) + dashboard placeholder
-- [x] Dockerfile multi-stage
+- [x] Dockerfile multi-stage (opcional pra self-host; Vercel ignora)
 - [x] README com setup e deploy
 - [x] Code review final aplicado (fixes de open-redirect, DELETE 404, layout metadata)
 
@@ -67,28 +67,25 @@ Se um passo bloquear (ex: cliente não tem credencial pronta), deixar `[ ]` mas 
 - [ ] `GET /api/chamadas` autenticado → `{ data: [] }`
 - [ ] `GET /api/chamadas` sem auth → 401 com JSON de erro
 
-### Estágio 3 — Easypanel configurado pela IA (via API)
-- [ ] Credenciais recebidas (URL do painel + API token)
-- [ ] Nome do projeto, repo git e domínio definidos com cliente
-- [ ] Repositório git acessível ao Easypanel (deploy key/PAT do provider configurado)
-- [ ] Formato da API descoberto (tRPC moderna vs `/api/v1/*`)
-- [ ] Projeto criado no painel via API
-- [ ] Service "app" criado com source git + Dockerfile (`docker/Dockerfile`)
-- [ ] Build Args setados (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
-- [ ] Env vars de runtime setadas
-- [ ] Porta 3000 exposta
-- [ ] Domínio mapeado com HTTPS provisionado
-- [ ] Configuração validada via GET no service
+### Estágio 3 — Vercel configurada (deploy contínuo)
+- [ ] Cliente forkou o repo no GitHub
+- [ ] Cliente criou/logou conta Vercel (idealmente via GitHub)
+- [ ] Nome do projeto Vercel definido (vira `<nome>.vercel.app`)
+- [ ] Projeto importado na Vercel apontando pro fork do cliente
+- [ ] Framework Next.js detectado automaticamente
+- [ ] `NEXT_PUBLIC_SUPABASE_URL` setada em Production+Preview+Development
+- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` setada em Production+Preview+Development
+- [ ] *(Opcional)* `SUPABASE_SERVICE_ROLE_KEY` setada como sensitive
+- [ ] Primeiro deploy verde
+- [ ] URL pública `<nome>.vercel.app` compartilhada com a IA e anotada em "Decisões"
 
-### Estágio 4 — Deploy ativo
-- [ ] Redirect URL de produção adicionada no Supabase
-- [ ] Deploy disparado
-- [ ] Build concluído sem erro (logs revisados)
-- [ ] HTTPS respondendo no domínio
+### Estágio 4 — Produção validada
+- [ ] Redirect URL `https://<projeto>.vercel.app/api/auth/callback` adicionada no Supabase
 - [ ] Cadastro funciona em produção
 - [ ] Login funciona em produção
-- [ ] Dashboard funciona em produção
-- [ ] API `GET /api/chamadas` funciona em produção (autenticado)
+- [ ] Dashboard mostra email do usuário em produção
+- [ ] `GET /api/chamadas` autenticado responde `{ data: [] }`
+- [ ] *(Opcional)* Domínio customizado configurado e DNS apontando
 
 ### Pós-deploy — Features de IA (fora deste playbook)
 - [ ] Credenciais Anthropic/OpenAI recebidas

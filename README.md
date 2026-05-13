@@ -19,7 +19,7 @@ Sistema operacional de IA — MVP para ler transcrições de calls, gerar relat�
 - Tailwind CSS v4
 - Supabase (Auth + Postgres)
 - Zod (validação)
-- Docker / Easypanel para deploy
+- **Vercel** para deploy contínuo (auto a cada push) — `docker/Dockerfile` incluso como opção de self-host (Vercel ignora)
 
 ## Arquitetura do backend
 
@@ -69,19 +69,22 @@ docker/             Dockerfile
    ```
 5. Acesse http://localhost:3000
 
-## Deploy no Easypanel
+## Deploy na Vercel
 
-1. **Criar App** apontando para este repositório.
-2. **Build:** Docker, dockerfile path `docker/Dockerfile`.
-3. **Build Args** (necessários pois `NEXT_PUBLIC_*` são inlined no bundle):
+Resumo (passo a passo detalhado em `configuracao.md` → Estágio 3):
+
+1. **Fork** este repo na sua conta GitHub.
+2. **Vercel → Add New… → Project** → importar o fork.
+3. **Framework Preset:** Next.js (detectado automaticamente).
+4. **Environment Variables** (aplicar em Production + Preview + Development):
    - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-4. **Environment Variables** do serviço (runtime):
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY` (opcional, só se for usar jobs admin)
-5. **Porta:** 3000.
-6. **Domínio:** configure no painel do Easypanel; HTTPS automático.
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable key — `sb_publishable_*` ou a legada `anon`)
+   - `SUPABASE_SERVICE_ROLE_KEY` *(opcional, sensitive)*
+5. **Deploy.** A partir daqui, cada push no branch principal do fork gera deploy automático.
+
+Após o primeiro deploy, adicione `https://<projeto>.vercel.app/api/auth/callback` em **Supabase → Authentication → URL Configuration → Redirect URLs**.
+
+> **Dockerfile incluso (`docker/Dockerfile`)** é só pra self-host opcional — a Vercel usa o runtime nativo do Next.js e ignora.
 
 ## API
 

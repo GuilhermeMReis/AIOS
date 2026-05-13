@@ -3,7 +3,7 @@
 > **Este é um projeto base / template.** Cada cliente que quer rodar o AIOS clona este repositório e executa este playbook com uma sessão de IA (Claude) assistindo. A IA opera duas plataformas em nome do cliente:
 >
 > - **Supabase** — via **MCP** instalado pelo cliente na sua sessão Claude (`claude_ai_Supabase`). A IA aplica migration, configura auth, regera tipos. O cliente não toca em SQL Editor nem copia chaves.
-> - **Easypanel** — via **API HTTP** com token fornecido pelo cliente. A IA cria projeto, service, build args, env vars e dispara deploy.
+> - **Vercel** — deploy contínuo a partir de um **fork do repo no GitHub do cliente**. Setup inicial é manual via UI da Vercel (~3 min); a partir daí, cada push gera deploy automático. Dockerfile permanece no repo só como opção de self-host (Vercel ignora).
 
 **Use sempre junto com `configuracao-estado.md`** — esse outro arquivo registra o que já foi feito e qual o próximo passo. Ele é **local de cada instalação** (gitignored). Ao clonar o template pela primeira vez, copie o exemplo:
 
@@ -23,7 +23,7 @@ Uma sessão de IA retomando a instalação deve:
 
 ## Credenciais a pedir ao cliente
 
-A IA pede apenas o necessário pra cada estágio. Não pedir tudo no início — o cliente pode ainda não ter o domínio ou conta Easypanel quando começar.
+A IA pede apenas o necessário pra cada estágio. Não pedir tudo no início — o cliente pode ainda não ter o fork ou a conta Vercel quando começar.
 
 ### Bloco A — Supabase (necessário a partir do Estágio 1)
 
@@ -62,13 +62,20 @@ Se por algum motivo o cliente não puder instalar o MCP, a IA pode operar via AP
 
 Migration vai via `psql -h db.<ref>.supabase.co -U postgres -f supabase/migrations/0001_init.sql` (senha = secret key). Tipos via `npx supabase gen types`. Demais passos seguem o Estágio 1 com adaptações HTTP.
 
-### Bloco B — Easypanel (necessário a partir do Estágio 3)
+### Bloco B — Vercel + GitHub (necessário a partir do Estágio 3)
 
-1. **URL do painel** — ex: `https://panel.cliente.com`.
-2. **API token** — Easypanel → **Settings → API → Create token**. Permissões: criar projeto, criar service, definir env vars, deploy.
-3. **Nome do projeto** desejado no painel (ex: `aios`).
-4. **Repositório git** acessível ao Easypanel (URL HTTPS ou SSH). Se privado, deploy key/PAT do provider.
-5. **Domínio público** — ex: `aios.cliente.com`. HTTPS automático.
+A Vercel se conecta ao **fork do repositório** do cliente no GitHub e faz deploy automático em cada push. A IA **não precisa de token da Vercel** — o setup inicial é manual pela UI da Vercel (~3 min), guiado pela IA.
+
+Pré-requisitos do cliente:
+
+1. **Conta GitHub** com permissão pra criar repositórios privados/públicos.
+2. **Fork deste repositório** na conta GitHub do cliente (botão **Fork** na UI do GitHub).
+3. **Conta Vercel** — gratuita em https://vercel.com. Recomendado logar via GitHub pra autorização automática dos repos.
+
+Decisões a confirmar com o cliente:
+
+- **Nome do projeto na Vercel** — vira parte da URL `https://<nome>.vercel.app` (ex: `aios-acme`).
+- **Domínio customizado?** Opcional. Se sim, o cliente precisa ter o domínio registrado e seguir as instruções DNS da Vercel.
 
 ### Bloco C — Provedor de IA (fora do scaffold inicial)
 
@@ -192,103 +199,81 @@ Anthropic API key ou OpenAI API key quando o cliente decidir habilitar geração
 
 ---
 
-## Estágio 3 — Easypanel configurado pela IA (via API)
+## Estágio 3 — Vercel configurada (deploy contínuo)
 
-**Pré-requisito:** Estágios 1 e 2 completos + Bloco B entregue (panel URL + API token + nome do projeto + repo git + domínio).
+**Pré-requisito:** Estágios 1 e 2 completos + Bloco B preparado (fork no GitHub do cliente + conta Vercel).
 
-### Passos da IA
+### Passos do cliente (guiados pela IA)
 
-1. **Descobrir o formato da API** do Easypanel desse cliente:
-   ```bash
-   curl -s -H "Authorization: Bearer <TOKEN>" <PANEL_URL>/api/trpc/projects.listProjects
-   ```
-   - **200 OK** com JSON → API tRPC moderna (padrão em versões recentes do Easypanel). Seguir os passos 2-5 abaixo.
-   - **404 / 401** → tentar `<PANEL_URL>/api/v1/projects`. Se também falhar, ver "Fallback de emergência" no rodapé desta seção.
+A IA não tem token da Vercel — orienta o cliente e valida o resultado.
 
-2. **Criar projeto** (se ainda não existe no painel):
-   ```bash
-   curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-     -d '{"json":{"name":"<NOME_PROJETO>"}}' \
-     <PANEL_URL>/api/trpc/projects.createProject
-   ```
+1. **Acessar https://vercel.com** e logar (idealmente com a conta GitHub que tem o fork).
 
-3. **Criar service "app"** com source git + build via Dockerfile:
-   ```bash
-   curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-     -d '{
-       "json": {
-         "projectName": "<NOME_PROJETO>",
-         "serviceName": "app",
-         "source": {
-           "type": "github",
-           "owner": "<owner>",
-           "repo": "<repo>",
-           "branch": "main",
-           "buildPath": "/"
-         },
-         "build": {
-           "type": "dockerfile",
-           "file": "docker/Dockerfile"
-         }
-       }
-     }' \
-     <PANEL_URL>/api/trpc/services.app.createService
-   ```
-   > Endpoints exatos (`projects.createProject`, `services.app.createService`, etc.) podem variar entre versões. Use o resultado do passo 1 pra inferir o namespace correto, ou consulte a doc do Easypanel do cliente.
+2. **Importar projeto:** dashboard Vercel → **Add New… → Project**.
 
-4. **Definir Build Args + Env vars + porta + domínio:**
-   - **Build args** (necessários porque `NEXT_PUBLIC_*` são inlineados no bundle no build time):
-     - `NEXT_PUBLIC_SUPABASE_URL=<URL do Estágio 1>`
-     - `NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key do Estágio 1>`
-   - **Env vars (runtime):** as mesmas duas, mais opcionalmente `SUPABASE_SERVICE_ROLE_KEY=<sb_secret_...>` se forem usar jobs admin server-side.
-   - **Porta exposta:** `3000`.
-   - **Domínio:** `<dominio do cliente>` com HTTPS ativo (Easypanel emite certificado automático).
+3. **Selecionar repositório:** escolher o fork do AIOS na lista. Se não aparece, clicar **Adjust GitHub App Permissions** e autorizar a Vercel a ver o repo.
 
-   Cada um desses ajustes é um endpoint próprio (tipicamente `services.app.updateEnv`, `services.app.updateDomains`, etc.). Encadear as chamadas em sequência e validar 200 em cada uma.
+4. **Configure Project:**
+   - **Project Name:** o combinado no Bloco B.
+   - **Framework Preset:** Next.js (Vercel detecta automaticamente — não mexer).
+   - **Root Directory:** `./` (padrão).
+   - **Build / Output Settings:** padrão.
 
-5. **Validar configuração final** — `GET` no service e conferir que build args, env vars e domínio estão como esperado antes de partir pro Estágio 4.
+5. **Environment Variables** — adicionar (a IA entrega os valores prontos do Estágio 1):
 
-### Fallback de emergência (UI manual)
+   | Nome | Valor | Sensitive? |
+   |---|---|---|
+   | `NEXT_PUBLIC_SUPABASE_URL` | URL do projeto Supabase | Não |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable key (`sb_publishable_...`) | Não |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Secret key (`sb_secret_...`) — **opcional**, só se for usar jobs admin server-side | **Sim** |
 
-Se a API estiver indisponível ou o token sem permissão, pedir pro cliente fazer o setup manual:
-1. Easypanel → **Create project** → nome combinado.
-2. **+ Service → App** → Source GitHub/GitLab → repo → branch `main`.
-3. **Build** → Dockerfile → path `docker/Dockerfile`.
-4. **Build Args** → os dois `NEXT_PUBLIC_*`.
-5. **Environment** → mesmas vars (runtime) + opcionalmente a secret.
-6. **Domains** → adicionar domínio + HTTPS.
-7. **Save**.
+   Aplicar em todos os 3 ambientes da Vercel: **Production, Preview, Development**.
+
+6. **Deploy.** Clicar **Deploy**. Primeiro build leva ~2 min. Vercel mostra logs em tempo real.
+
+7. **Compartilhar com a IA** a URL de produção (formato `https://<projeto>.vercel.app`). A IA anota em `configuracao-estado.md` → "Decisões registradas".
+
+> **Dockerfile incluso no repo:** existe em `docker/Dockerfile` como opção pra self-host. A Vercel ignora — usa o runtime nativo do Next.js. Não precisa apagar nem configurar.
+
+### O que a IA verifica
+
+- Os 3 (ou 2) env vars foram colados corretos (cliente pode mandar screenshot).
+- O primeiro build foi verde (cliente pode mandar print dos logs ou compartilhar o link da deploy).
+- A URL pública responde 200 na home `/`.
 
 ### Critério de pronto
-- Service criado com source git + Dockerfile via API.
-- Build args + env vars setadas com a publishable key.
-- Domínio mapeado e HTTPS provisionado.
+- Projeto Vercel criado e linkado ao fork do cliente.
+- Env vars `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` setadas em Production+Preview+Development.
+- Primeiro deploy verde.
+- URL `<projeto>.vercel.app` responde 200 e renderiza a home.
 
 ---
 
-## Estágio 4 — Deploy ativo
+## Estágio 4 — Produção validada
 
-**Pré-requisito:** Estágio 3 completo.
+**Pré-requisito:** Estágio 3 completo + URL pública da Vercel em mãos.
 
-1. **Adicionar redirect URL de produção no Supabase.**
-   - Com PAT: PATCH no config/auth incluindo `https://<dominio>/api/auth/callback` em `uri_allow_list`.
-   - Sem PAT: Dashboard → Authentication → URL Configuration → adicionar.
+> **Sobre deploys subsequentes:** a Vercel deploya automaticamente a cada push pra branch principal do fork. Não há mais "disparar deploy" manualmente. Os 2 passos abaixo são só pra completar a configuração do Supabase e validar o primeiro deploy.
 
-2. **Disparar deploy** no Easypanel (API ou botão **Deploy**).
+### Passos
 
-3. **Acompanhar logs do build.** Falhas comuns:
-   - **`NEXT_PUBLIC_*` undefined no bundle** → conferir que estão em **Build Args**, não só runtime.
-   - **Typecheck** → rodar `npx tsc --noEmit` local primeiro.
-   - **Migration ainda não aplicada** → voltar ao Estágio 1.
+1. **Adicionar redirect URL de produção no Supabase.** Sem isso, signup pelo cadastro em produção redireciona pra `/login?erro=callback`.
+   - **Com PAT:** PATCH em `https://api.supabase.com/v1/projects/<ref>/config/auth` adicionando `https://<projeto>.vercel.app/api/auth/callback` em `uri_allow_list`.
+   - **Sem PAT:** instruir cliente em Dashboard Supabase → **Authentication → URL Configuration → Redirect URLs** → adicionar.
 
-4. **Smoke test em produção.**
-   - `https://<dominio>` → cadastro → confirma (se aplicável) → login → dashboard.
-   - `https://<dominio>/api/chamadas` autenticado → `{ data: [] }`.
+2. **Smoke test em produção.**
+   - Abrir `https://<projeto>.vercel.app` → cadastrar conta → (confirmar email se aplicável) → login → dashboard mostra email.
+   - `GET https://<projeto>.vercel.app/api/chamadas` autenticado (com cookie da sessão do navegador) → `{ data: [] }`.
+
+### Falhas comuns
+
+- **`NEXT_PUBLIC_*` undefined em produção** → cliente esqueceu de marcar Production no env var da Vercel. Voltar ao Estágio 3, conferir os 3 environments.
+- **Build verde mas página em branco / erro no console do navegador** → muito provavelmente env var incorreto. Inspecionar Network tab → requests pro Supabase devem retornar 200.
+- **Callback de cadastro redireciona pra erro** → faltou o passo 1 acima.
 
 ### Critério de pronto
-- Build verde.
-- HTTPS ativo no domínio.
-- Cadastro/login/dashboard funcionam em produção.
+- Redirect URL de produção registrada no Supabase.
+- Fluxo end-to-end funciona em `https://<projeto>.vercel.app`.
 
 ---
 
